@@ -7,7 +7,7 @@
 #X obj 3 453 netsend -u -b;
 #X obj 309 3 adc~ 1 2;
 #X obj 366 2 param.change;
-#X obj 305 186 dac~ 1 2;
+#X obj 305 185 dac~ 1 2;
 #N canvas 0 50 450 250 (subpatch) 0;
 #X array Train 1200 float 1;
 #A 0 1 1 1 1 1 1 0.875 0.250732 -0.00878906 -0.399414 -0.600098 -0.791016
@@ -436,8 +436,8 @@
 #X msg 544 165 \$1 bang;
 #X msg 419 238 \; Train resize \$1 \; Target resize \$1 \; Synth resize
 \$1 \;;
-#X obj 305 131 r~ Dry;
-#X obj 350 131 r~ Glome;
+#X obj 305 114 r~ Dry;
+#X obj 350 114 r~ Glome;
 #X obj 437 215 s~ Glome;
 #X obj 261 475 array set Synth;
 #X obj 226 453 list split 2;
@@ -477,10 +477,10 @@
 #X obj 296 288 loadbang;
 #X obj 65 350 oscformat keras addexample;
 #X obj 11 329 oscformat keras delexample;
-#X obj 110 129 bng 15 250 50 0 empty empty Delete\ Last 17 7 0 10 #fcfcfc
-#000000 #000000;
-#X obj 110 147 bng 15 250 50 0 empty empty Delete\ All 17 7 0 10 #fcfcfc
-#000000 #000000;
+#X obj 110 129 bng 15 250 50 0 empty empty Delete\\\ Last 17 7 0 10
+#fcfcfc #000000 #000000;
+#X obj 110 147 bng 15 250 50 0 empty empty Delete\\\ All 17 7 0 10
+#fcfcfc #000000 #000000;
 #X obj 160 306 oscformat keras delall;
 #X obj 679 121 tgl 15 0 empty empty Auto-Train 17 7 0 10 #fcfcfc #000000
 #000000 0 1;
@@ -495,6 +495,13 @@
 #000000 0 1;
 #X obj 110 111 bng 15 250 50 0 empty empty Add\\\ Example 17 7 0 10
 #fcfcfc #000000 #000000;
+#X obj 113 165 hsl 128 15 0 1 0 0 empty empty Dry 8 8 0 10 #fcfcfc
+#000000 #000000 0 1;
+#X obj 113 182 hsl 128 15 0 1 0 0 empty empty Wet 8 8 0 10 #fcfcfc
+#000000 #000000 0 1;
+#X obj 305 136 *~ 1;
+#X obj 350 136 *~ 1;
+#X obj 305 158 +~;
 #X connect 0 0 42 0;
 #X connect 1 0 0 0;
 #X connect 3 0 4 0;
@@ -523,8 +530,8 @@
 #X connect 29 0 44 0;
 #X connect 29 1 46 0;
 #X connect 30 0 29 0;
-#X connect 33 0 8 0;
-#X connect 33 0 8 1;
+#X connect 32 0 84 0;
+#X connect 33 0 85 0;
 #X connect 36 1 35 0;
 #X connect 39 0 48 0;
 #X connect 40 0 34 0;
@@ -570,6 +577,14 @@
 #X connect 78 0 79 0;
 #X connect 79 0 77 0;
 #X connect 79 0 80 0;
+#X connect 79 0 83 0;
+#X connect 79 0 82 0;
 #X connect 80 0 73 0;
 #X connect 81 0 68 0;
+#X connect 82 0 84 1;
+#X connect 83 0 85 1;
+#X connect 84 0 86 0;
+#X connect 85 0 86 1;
+#X connect 86 0 8 0;
+#X connect 86 0 8 1;
 #X coords 0 -1 1 1 301 201 2 2 2;
