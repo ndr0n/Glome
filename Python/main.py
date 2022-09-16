@@ -1,7 +1,6 @@
 import numpy as np
 import time
 import os
-from osc import OscClient
 from osc import OscServer
 from keras1 import NeuralNetRegression
 
