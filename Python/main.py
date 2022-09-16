@@ -7,11 +7,10 @@ from keras1 import NeuralNetRegression
 import socket
 
 #parameters
-inputSize = 1200
-outputSize = 1200
+inputSize = 480
+outputSize = 480
 nHidden = 3
 nNodes = 10
-epochs = 100
 
 trained = 0
 nExamples = 0
