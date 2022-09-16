@@ -1,5 +1,6 @@
 import numpy as np
 import time
+import os
 from osc import OscClient
 from osc import OscServer
 from keras1 import NeuralNetRegression
@@ -9,15 +10,13 @@ inputSize = 1200
 outputSize = 1200
 nHidden = 3
 nNodes = 10
-epochs = 1000
+epochs = 100
 
 trained = 0
 nExamples = 0
 x = np.array([0])
 y = np.array([0])
 nn = NeuralNetRegression(np.zeros((1,inputSize)), np.zeros((1,outputSize)), nHidden, nNodes)
-oscclient = OscClient("127.0.0.1", 12000, inputSize, outputSize)
-oscclient.sendMsg(np.array([[0],[0]]).tolist(), '/keras/training')
 oscserver = OscServer("127.0.0.1", 6448, inputSize, outputSize)
 print("press ctrl+c: quit")
 
@@ -28,8 +27,14 @@ while True:
         if(pred.shape[1] == outputSize):
             yout = nn.predict(pred)
             yout = yout.tolist()
-            oscclient.sendMsg(yout, '/keras/yout')
-            oscserverxin = oscserver.xin
+            # oscclient.sendMsg(yout, '/keras/yout')
+            msg = ''
+            for value in yout:
+                msg = msg + ' ' + str(value)
+            msg = msg.replace(",", "")
+            msg = msg.replace("[", "")
+            msg = msg.replace("]", "")
+            os.system("echo '" + msg + ";' | pdsend 3000")
     if oscserver.addexample == 1:
         if(oscserver.xin.size == inputSize & oscserver.yin.size == outputSize):
             if(nExamples==0):
@@ -65,12 +70,10 @@ while True:
     if oscserver.train == 1:
         # train
         if(nExamples > 1):
-            oscclient.sendMsg(np.array([[1],[1]]).tolist(),'/keras/training')
             print("Training Neural Network...")
             print("nExamples:",nExamples,"Epochs:",oscserver.epochs)
             nn.train(x,y,nExamples,oscserver.epochs)
             print("Finished Training Neural Network")
-            oscclient.sendMsg(np.array([[0],[0]]).tolist(),'/keras/training')
             trained = 1
             oscserver.delall = 1
             oscserver.train = 0
@@ -84,10 +87,8 @@ while True:
             nn = NeuralNetRegression(x,y,nHidden,nNodes)
             print("Training New Neural Network...")
             print("nExamples:",nExamples,"Epochs:",oscserver.epochs)
-            oscclient.sendMsg(np.array([[1],[1]]).tolist(),'/keras/training')
             nn.train(x,y,nExamples,oscserver.epochs)
             print("Finished Training New Neural Network")
-            oscclient.sendMsg(np.array([[0],[0]]).tolist(),'/keras/training')
             trained = 1
             oscserver.trainNew = 0
         else:

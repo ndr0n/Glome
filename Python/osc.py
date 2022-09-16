@@ -101,7 +101,7 @@ class OscServer:
     def __init__(self, ip, port, input, output):
         self.inputSize = input
         self.outputSize = output
-        self.epochs = 1000
+        self.epochs = 100
         self.addexample = 0
         self.delexample = 0
         self.delall = 0
