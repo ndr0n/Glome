@@ -1,8 +1,10 @@
 import numpy as np
 import time
 import os
+from osc import OscClient
 from osc import OscServer
 from keras1 import NeuralNetRegression
+import socket
 
 #parameters
 inputSize = 1200
@@ -19,6 +21,14 @@ nn = NeuralNetRegression(np.zeros((1,inputSize)), np.zeros((1,outputSize)), nHid
 oscserver = OscServer("127.0.0.1", 6448, inputSize, outputSize)
 print("press ctrl+c: quit")
 
+# s = socket.socket()
+# host = socket.gethostname()
+# port = 3000
+# s.connect((host, port))
+
+oscclient = OscClient("127.0.0.1", 3000, inputSize, outputSize)
+oscclient.sendMsg(np.array([[0],[0]]).tolist(), '/keras/training')
+
 while True:
     time.sleep(0.1)
     if trained == 1:
@@ -26,13 +36,13 @@ while True:
         if(pred.shape[1] == outputSize):
             yout = nn.predict(pred)
             yout = yout.tolist()
-            msg = ''
-            for value in yout:
-                msg = msg + ' ' + str(value)
-            msg = msg.replace(",", "")
-            msg = msg.replace("[", "")
-            msg = msg.replace("]", "")
-            os.system("echo '" + msg + ";' | pdsend 3000")
+            oscclient.sendMsg(yout, '/keras/yout')
+            # msg = str(yout)
+            # msg = msg.replace(",", "")
+            # msg = msg.replace("[", "")
+            # msg = msg.replace("]", "")
+            # print(msg)
+            # s.send(msg.encode('utf-8'))
     if oscserver.addexample == 1:
         if(oscserver.xin.size == inputSize & oscserver.yin.size == outputSize):
             if(nExamples==0):

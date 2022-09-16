@@ -6,6 +6,31 @@ from pythonosc import udp_client
 from pythonosc import osc_server
 from pythonosc.osc_message_builder import OscMessageBuilder
 
+
+class OscClient:
+    inputSize = 1200
+    outputSize = 1200
+
+    def __init__(self,ip,port, input, output):
+        self.ip = ip
+        self.port = port
+        self.inputSize = input
+        self.outputSize = output
+        # self.address = address
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--ip", default=ip)
+        parser.add_argument("--port", type=int, default=port)
+        args = parser.parse_args()
+        self.client = udp_client.SimpleUDPClient(args.ip, args.port)
+
+    def sendMsg(self,msg,msgAdress):
+        builder = OscMessageBuilder(address=msgAdress)
+        for v in msg[0]:
+            builder.add_arg(v)
+        out = builder.build()
+        # print("sent osc message to",self.ip,"on port",self.port,"with address",self.address)
+        self.client.send(out)
+
 class OscServer:
     inputSize = 2400
     outputSize = 2400
