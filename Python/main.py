@@ -26,7 +26,6 @@ while True:
         if(pred.shape[1] == outputSize):
             yout = nn.predict(pred)
             yout = yout.tolist()
-            # oscclient.sendMsg(yout, '/keras/yout')
             msg = ''
             for value in yout:
                 msg = msg + ' ' + str(value)
