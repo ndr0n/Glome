@@ -44,7 +44,7 @@ oscclient = OscClient("127.0.0.1", 3000)
 class OscServer:
     def __init__(self, ip, port):
         self.epochs = 100
-        self.learn = False
+        self.learn = True
         self.training = False
         self.nExamples = 0
         self.x = np.array([0])
