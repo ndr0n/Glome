@@ -1,110 +1,161 @@
+import argparse
+import threading
+import numpy as np
+from pythonosc import dispatcher
+from pythonosc import udp_client
+from pythonosc import osc_server
+from pythonosc.osc_message_builder import OscMessageBuilder
 import numpy as np
 import time
 import os
-from osc import OscClient
-from osc import OscServer
-from keras1 import NeuralNetRegression
+from net import NeuralNetRegression
 import socket
+from sklearn.neighbors import KNeighborsClassifier
+from pythonosc.osc_server import AsyncIOOSCUDPServer
+from pythonosc.dispatcher import Dispatcher
+import asyncio
 
-#parameters
-inputSize = 480
-outputSize = 480
+
+size = 8192
 nHidden = 3
 nNodes = 10
+nn = NeuralNetRegression(np.zeros((1,size)), np.zeros((1,size)), nHidden, nNodes)
 
-trained = 0
-nExamples = 0
-x = np.array([0])
-y = np.array([0])
-nn = NeuralNetRegression(np.zeros((1,inputSize)), np.zeros((1,outputSize)), nHidden, nNodes)
-oscserver = OscServer("127.0.0.1", 6448, inputSize, outputSize)
-print("press ctrl+c: quit")
+class OscClient:
+    def __init__(self,ip,port):
+        self.ip = ip
+        self.port = port
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--ip", default=ip)
+        parser.add_argument("--port", type=int, default=port)
+        args = parser.parse_args()
+        self.client = udp_client.SimpleUDPClient(args.ip, args.port)
 
-# s = socket.socket()
-# host = socket.gethostname()
-# port = 3000
-# s.connect((host, port))
+    def sendMsg(self,msg,msgAdress):
+        builder = OscMessageBuilder(address=msgAdress)
+        for v in msg:
+            builder.add_arg(v)
+        out = builder.build()
+        self.client.send(out)
 
-oscclient = OscClient("127.0.0.1", 3000, inputSize, outputSize)
-oscclient.sendMsg(np.array([[0],[0]]).tolist(), '/keras/training')
 
-while True:
-    time.sleep(0.1)
-    if trained == 1:
-        pred = np.array([oscserver.pred])
-        if(pred.shape[1] == outputSize):
-            yout = nn.predict(pred)
-            yout = yout.tolist()
-            oscclient.sendMsg(yout, '/keras/yout')
-            # msg = str(yout)
-            # msg = msg.replace(",", "")
-            # msg = msg.replace("[", "")
-            # msg = msg.replace("]", "")
-            # print(msg)
-            # s.send(msg.encode('utf-8'))
-    if oscserver.addexample == 1:
-        if(oscserver.xin.size == inputSize & oscserver.yin.size == outputSize):
-            if(nExamples==0):
-                x = oscserver.xin
-                y = oscserver.yin
+oscclient = OscClient("127.0.0.1", 3000)
+
+class OscServer:
+    def __init__(self, ip, port):
+        self.epochs = 100
+        self.learn = False
+        self.training = False
+        self.nExamples = 0
+        self.x = np.array([0])
+        self.y = np.array([0])
+        self.xin = np.array([0])
+        self.yin = np.array([0])
+        self.yout = np.array([0])
+        self.dispatcher = dispatcher.Dispatcher()
+        self.dispatcher.map('/keras/xin', self.getX)
+        self.dispatcher.map('/keras/delexample', self.delExample)
+        self.dispatcher.map('/keras/delall', self.delAll)
+        self.dispatcher.map('/keras/train', self.trainModel)
+        self.dispatcher.map('/keras/trainnew', self.trainNewModel)
+        self.dispatcher.map('/keras/learn', self.setLearn)
+        self.dispatcher.map('/keras/predict', self.Predict)
+        self.server = AsyncIOOSCUDPServer((ip, port), self.dispatcher, asyncio.get_event_loop())
+
+    async def StartServer(self):
+        self.transport, self.protocol = await self.server.create_serve_endpoint()
+
+    def Predict(self, unused_addr, *args):
+        oscclient.sendMsg(nn.predict(np.reshape(np.array(args), (1, size))).tolist(), '/keras/yout')
+
+    def getX(self, unused_addr, *args):
+        self.xin = np.array(args)
+        self.yin = np.array(args)
+        if (self.learn == True) & (self.training == False):
+            if self.nExamples == 0:
+                self.x = self.xin
+                self.y = self.yin
             else:
-                x = np.vstack((x,oscserver.xin))
-                y = np.vstack((y,oscserver.yin))
-            nExamples += 1
-            print("nExamples:", nExamples)
-        else:
-            print("Error Adding Example - Wrong Size! xSize: " + str(oscserver.xin.size) + " | ySize: " + str(oscserver.yin.size))
-        oscserver.addexample = 0
-        pass
-    if oscserver.delexample == 1:
-        nExamples -= 1
-        x = x[:-1]
-        y = y[:-1]
-        print(x)
-        print(y)
-        if(nExamples<0):nExamples=0
+                self.x = np.vstack((self.x, self.xin))
+                self.y = np.vstack((self.y, self.yin))
+            self.nExamples = self.x.shape[0]
+            print("nExamples:", self.nExamples)
+
+    def setLearn(self, unused_addr, *args):
+        if args[0] == 1.0: self.learn = True
+        else: self.learn = False
+
+    def delExample(self, unused_addr, *args):
+        self.nExamples -= 1
+        self.x = self.x[:-1]
+        self.y = self.y[:-1]
+        print(self.x)
+        print(self.y)
+        if self.nExamples < 0:
+            self.nExamples = 0
         print("Removed Example")
-        print("nExamples:", nExamples)
-        oscserver.delexample = 0
-        pass
-    if oscserver.delall == 1:
-        nExamples = 0
+        print("nExamples:", self.nExamples)
+
+    def delAll(self, unused_addr, *args):
+        self.nExamples = 0
         x = np.array([0])
         y = np.array([0])
         print("Cleared Examples")
-        print("nExamples:", nExamples)
-        oscserver.delall = 0
-    if oscserver.train == 1:
-        # train
-        if(nExamples > 1):
-            print("Training Neural Network...")
-            print("nExamples:",nExamples,"Epochs:",oscserver.epochs)
-            nn.train(x,y,nExamples,oscserver.epochs)
+        print("nExamples:", self.nExamples)
+
+    def trainModel(self, unused_addr, *args):
+        if self.nExamples > 1:
+            self.training = True
+            print("Training New Neural Network...")
+            print("nExamples:", self.nExamples, "Epochs:", self.epochs)
+            self.y = self.y[0:self.x.shape[0]]
+            self.x = self.x[0:self.y.shape[0]]
+            nn.fit(self.x, self.y, self.epochs)
             print("Finished Training Neural Network")
-            trained = 1
-            oscserver.delall = 1
-            oscserver.train = 0
+            self.nExamples = 0
+            self.x = np.array([0])
+            self.y = np.array([0])
+            print("Cleared Examples")
+            print("nExamples:", self.nExamples)
+            self.training = False
         else:
             print("Error Training - Not Enough Examples.")
-            oscserver.train = 0
-        pass
-    if oscserver.trainNew == 1:
-        # train New
-        if(nExamples > 1):
-            nn = NeuralNetRegression(x,y,nHidden,nNodes)
+
+    def trainNewModel(self, unused_addr, *args):
+        if self.nExamples > 1:
+            self.training = True
+            nn = NeuralNetRegression(self.x, self.y, nHidden, nNodes)
             print("Training New Neural Network...")
-            print("nExamples:",nExamples,"Epochs:",oscserver.epochs)
-            nn.train(x,y,nExamples,oscserver.epochs)
-            print("Finished Training New Neural Network")
-            trained = 1
-            oscserver.trainNew = 0
+            print("nExamples:", self.nExamples, "Epochs:", self.epochs)
+            self.y = self.y[0:self.x.shape[0]]
+            self.x = self.x[0:self.y.shape[0]]
+            nn.fit(self.x, self.y, self.epochs)
+            print("Finished Training Neural Network")
+            self.nExamples = 0
+            self.x = np.array([0])
+            self.y = np.array([0])
+            print("Cleared Examples")
+            print("nExamples:", self.nExamples)
+            self.training = False
         else:
             print("no Examples found. Need atleast 2 Examples to Train")
-            oscserver.trainNew = 0
-        pass
-    if oscserver.quit == 1:
-        oscserver.server.shutdown()
+
+print("press ctrl+c: quit")
+
+async def loop(server):
+    try:
+        while True:
+            await asyncio.sleep(1);
+            pass
+    except KeyboardInterrupt:
+        print('Closing...')
+        server.transport.close()
+        server.server.shutdown()
         quit()
-        break
-    else:
-        pass
+
+async def init_main():
+    oscserver = OscServer("127.0.0.1", 6448)
+    await oscserver.StartServer()
+    await loop(oscserver)
+
+asyncio.run(init_main())
