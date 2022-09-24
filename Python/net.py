@@ -14,6 +14,7 @@ class NeuralNetRegression:
     def fit(self, x, y, epochs):
         self.model.compile(loss='mse', optimizer='adam')
         self.model.fit(x, y, epochs=epochs,batch_size=x.shape[0],verbose=0)
+        return self.model
 
     def predict(self, xin):
         return self.model.predict(xin)

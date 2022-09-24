@@ -14,12 +14,11 @@ from sklearn.neighbors import KNeighborsClassifier
 from pythonosc.osc_server import AsyncIOOSCUDPServer
 from pythonosc.dispatcher import Dispatcher
 import asyncio
-
+from tensorflow.keras.models import Sequential, model_from_json
 
 size = 8192
 nHidden = 3
 nNodes = 10
-nn = NeuralNetRegression(np.zeros((1,size)), np.zeros((1,size)), nHidden, nNodes)
 
 class OscClient:
     def __init__(self,ip,port):
@@ -39,10 +38,36 @@ class OscClient:
         self.client.send(out)
 
 
-oscclient = OscClient("127.0.0.1", 3000)
+class OscPredict:
+    def __init__(self, ip, port):
+        self.trained = False
+        self.yout = np.array([0])
+        self.dispatcher = dispatcher.Dispatcher()
+        self.dispatcher.map('/keras/predict', self.Predict)
+        self.server = AsyncIOOSCUDPServer((ip, port), self.dispatcher, asyncio.get_event_loop())
+        self.model = NeuralNetRegression(np.zeros((1, size)), np.zeros((1, size)), nHidden, nNodes)
+        self.oscclient = OscClient("127.0.0.1", 3000)
+
+    async def StartServer(self):
+        self.transport, self.protocol = await self.server.create_serve_endpoint()
+
+    def Predict(self, unused_addr, *args):
+        if self.trained == True:
+            self.oscclient.sendMsg(self.model.predict(np.reshape(np.array(args), (1, size))).tolist(), '/keras/yout')
+
+    def LoadModel(self):
+        # load json and create model
+        json_file = open('model.json', 'r')
+        loaded_model_json = json_file.read()
+        json_file.close()
+        self.model = model_from_json(loaded_model_json)
+        # load weights into new model
+        self.model.load_weights("model.h5")
+        print("Loaded model from disk")
+
 
 class OscServer:
-    def __init__(self, ip, port):
+    def __init__(self, ip, port, oscpredict):
         self.epochs = 100
         self.learn = True
         self.training = False
@@ -59,14 +84,12 @@ class OscServer:
         self.dispatcher.map('/keras/train', self.trainModel)
         self.dispatcher.map('/keras/trainnew', self.trainNewModel)
         self.dispatcher.map('/keras/learn', self.setLearn)
-        self.dispatcher.map('/keras/predict', self.Predict)
         self.server = AsyncIOOSCUDPServer((ip, port), self.dispatcher, asyncio.get_event_loop())
+        self.model = NeuralNetRegression(np.zeros((1, size)), np.zeros((1, size)), nHidden, nNodes)
+        self.predict = oscpredict
 
     async def StartServer(self):
         self.transport, self.protocol = await self.server.create_serve_endpoint()
-
-    def Predict(self, unused_addr, *args):
-        oscclient.sendMsg(nn.predict(np.reshape(np.array(args), (1, size))).tolist(), '/keras/yout')
 
     def getX(self, unused_addr, *args):
         self.xin = np.array(args)
@@ -104,58 +127,64 @@ class OscServer:
         print("nExamples:", self.nExamples)
 
     def trainModel(self, unused_addr, *args):
-        if self.nExamples > 1:
-            self.training = True
-            print("Training New Neural Network...")
-            print("nExamples:", self.nExamples, "Epochs:", self.epochs)
-            self.y = self.y[0:self.x.shape[0]]
-            self.x = self.x[0:self.y.shape[0]]
-            nn.fit(self.x, self.y, self.epochs)
-            print("Finished Training Neural Network")
-            self.nExamples = 0
-            self.x = np.array([0])
-            self.y = np.array([0])
-            print("Cleared Examples")
-            print("nExamples:", self.nExamples)
-            self.training = False
-        else:
-            print("Error Training - Not Enough Examples.")
+        self.trainNetwork(False)
 
     def trainNewModel(self, unused_addr, *args):
+        self.trainNetwork(True)
+
+    def trainNetwork(self, new):
         if self.nExamples > 1:
             self.training = True
-            nn = NeuralNetRegression(self.x, self.y, nHidden, nNodes)
-            print("Training New Neural Network...")
+            if new == True:
+                self.model = NeuralNetRegression(self.x, self.y, nHidden, nNodes)
+                print("Training New Neural Network...")
+            else:
+                print("Training Neural Network...")
             print("nExamples:", self.nExamples, "Epochs:", self.epochs)
             self.y = self.y[0:self.x.shape[0]]
             self.x = self.x[0:self.y.shape[0]]
-            nn.fit(self.x, self.y, self.epochs)
+            mjson = self.model.fit(self.x, self.y, self.epochs)
             print("Finished Training Neural Network")
+            self.SaveModel(mjson)
+            self.predict.LoadModel()
             self.nExamples = 0
             self.x = np.array([0])
             self.y = np.array([0])
             print("Cleared Examples")
             print("nExamples:", self.nExamples)
             self.training = False
+            self.predict.trained = True
         else:
             print("no Examples found. Need atleast 2 Examples to Train")
 
-print("press ctrl+c: quit")
+    def SaveModel(self, mj):
+        # serialize model to JSON
+        model_json = mj.to_json()
+        with open("model.json", "w") as json_file:
+            json_file.write(model_json)
+        # serialize weights to HDF5
+        mj.save_weights("model.h5")
+        print("Saved model to disk")
 
-async def loop(server):
+async def loop(server, predict):
     try:
         while True:
             await asyncio.sleep(1);
             pass
     except KeyboardInterrupt:
         print('Closing...')
+        predict.transport.close()
+        predict.server.shutdown()
         server.transport.close()
         server.server.shutdown()
         quit()
 
 async def init_main():
-    oscserver = OscServer("127.0.0.1", 6448)
+    print("press ctrl+c: quit")
+    oscpredict = OscPredict("127.0.0.1", 6449)
+    await oscpredict.StartServer()
+    oscserver = OscServer("127.0.0.1", 6448, oscpredict)
     await oscserver.StartServer()
-    await loop(oscserver)
+    await loop(oscserver, oscpredict)
 
 asyncio.run(init_main())
