@@ -1,4 +1,4 @@
-# nFreez
+# Glome
 
 ![Glome](Glome.png)
 
