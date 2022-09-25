@@ -123,6 +123,10 @@ class OscServer:
             self.oscclient.sendMsg([0,0], "/keras/load")
             time.sleep(0.1)
             self.oscclient.sendMsg([0,0], "/keras/load")
+            time.sleep(0.1)
+            self.oscclient.sendMsg([0,0], "/keras/load")
+            time.sleep(0.1)
+            self.oscclient.sendMsg([0,0], "/keras/load")
         else:
             print("no Examples found. Need atleast 2 Examples to Train")
 
