@@ -55,10 +55,10 @@ class OscPredict:
     def Predict(self, unused_addr, *args):
         if self.trained == True:
             self.yout = self.model.predict(np.reshape(np.array(args), (1, size)))
-            # self.yout = np.reshape(self.yout, (round(size/256), 256))
-            # for chunk in self.yout:
-            #     self.oscclient.sendMsg(chunk.tolist(), '/keras/yout')
-            self.oscclient.sendMsg(self.yout.tolist(), '/keras/yout')
+            self.yout = np.reshape(self.yout, (round(size/256), 256))
+            for chunk in self.yout:
+                self.oscclient.sendMsg(chunk.tolist(), '/keras/yout')
+            # self.oscclient.sendMsg(self.yout.tolist(), '/keras/yout')
 
     def Load(self, unused_addr, *args):
         self.LoadModel()
