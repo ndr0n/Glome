@@ -9,6 +9,7 @@ from net import NeuralNetRegression
 from pythonosc.osc_server import AsyncIOOSCUDPServer
 import asyncio
 from tensorflow.keras.models import Sequential, model_from_json
+import time
 
 size = 8192
 nHidden = 3
@@ -53,6 +54,7 @@ class OscPredict:
             # for chunk in self.yout:
                 # self.oscclient.sendMsg(chunk.tolist(), '/keras/yout')
             self.oscclient.sendMsg(self.yout.tolist(), '/keras/yout')
+            time.sleep(0.01)
 
     def Load(self, unused_addr, *args):
         self.LoadModel()

@@ -8,6 +8,7 @@ import numpy as np
 from net import NeuralNetRegression
 from pythonosc.osc_server import AsyncIOOSCUDPServer
 import asyncio
+import time
 
 size = 8192
 nHidden = 3
@@ -119,6 +120,8 @@ class OscServer:
             print("Cleared Examples")
             print("nExamples:", self.nExamples)
             self.training = False
+            self.oscclient.sendMsg([0,0], "/keras/load")
+            time.sleep(0.1)
             self.oscclient.sendMsg([0,0], "/keras/load")
         else:
             print("no Examples found. Need atleast 2 Examples to Train")
