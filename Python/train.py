@@ -63,7 +63,10 @@ class OscServer:
         self.transport, self.protocol = await self.server.create_serve_endpoint()
 
     def getX(self, unused_addr, *args):
-        self.xin = np.array(args)
+        if self.nExamples == 0:
+            self.xin = np.array(args)
+        else:
+            self.xin = self.yin
         self.yin = np.array(args)
         if (self.learn == True) & (self.training == False):
             if self.nExamples == 0:
@@ -130,10 +133,10 @@ class OscServer:
     def SaveModel(self, mj):
         # serialize model to JSON
         model_json = mj.to_json()
-        with open("model.json", "w") as json_file:
+        with open("glome.json", "w") as json_file:
             json_file.write(model_json)
         # serialize weights to HDF5
-        mj.save_weights("model.h5")
+        mj.save_weights("glome.h5")
         print("Saved model to disk")
 
 async def loop(server):

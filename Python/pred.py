@@ -54,19 +54,23 @@ class OscPredict:
 
     def Predict(self, unused_addr, *args):
         if self.trained == True:
-            self.oscclient.sendMsg(self.model.predict(np.reshape(np.array(args), (1, size))).tolist(), '/keras/yout')
+            self.yout = self.model.predict(np.reshape(np.array(args), (1, size)))
+            # self.yout = np.reshape(self.yout, (round(size/256), 256))
+            # for chunk in self.yout:
+            #     self.oscclient.sendMsg(chunk.tolist(), '/keras/yout')
+            self.oscclient.sendMsg(self.yout.tolist(), '/keras/yout')
 
     def Load(self, unused_addr, *args):
         self.LoadModel()
 
     def LoadModel(self):
         # load json and create model
-        json_file = open('model.json', 'r')
+        json_file = open('glome.json', 'r')
         loaded_model_json = json_file.read()
         json_file.close()
         self.model = model_from_json(loaded_model_json)
         # load weights into new model
-        self.model.load_weights("model.h5")
+        self.model.load_weights("glome.h5")
         print("Loaded model from disk")
         self.trained = True
 
