@@ -32,7 +32,7 @@ class OscClient:
 
 class OscServer:
     def __init__(self, ip, port):
-        self.epochs = 100
+        self.epochs = 200
         self.learn = True
         self.training = False
         self.nExamples = 0
