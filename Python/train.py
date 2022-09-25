@@ -1,20 +1,13 @@
 import argparse
 import threading
-import numpy as np
 from pythonosc import dispatcher
 from pythonosc import udp_client
 from pythonosc import osc_server
 from pythonosc.osc_message_builder import OscMessageBuilder
 import numpy as np
-import time
-import os
 from net import NeuralNetRegression
-import socket
-from sklearn.neighbors import KNeighborsClassifier
 from pythonosc.osc_server import AsyncIOOSCUDPServer
-from pythonosc.dispatcher import Dispatcher
 import asyncio
-from tensorflow.keras.models import Sequential, model_from_json
 
 size = 8192
 nHidden = 3
