@@ -2349,20 +2349,20 @@
 ;
 #X coords 0 1 8191 -1 145 50 1 0 0;
 #X restore 155 150 graph;
-#X obj 4 59 bng 15 250 50 0 empty empty Train 17 7 0 10 #fcfcfc #000000
+#X obj 4 46 bng 15 250 50 0 empty empty Train 17 7 0 10 #fcfcfc #000000
 #000000;
 #X obj 2 246 oscformat keras xin;
 #X obj 158 226 oscformat keras train;
-#X obj 4 76 bng 15 250 50 0 empty empty Retrain 17 7 0 10 #fcfcfc #000000
+#X obj 4 63 bng 15 250 50 0 empty empty Retrain 17 7 0 10 #fcfcfc #000000
 #000000;
 #X obj 159 245 oscformat keras trainnew;
 #X obj 147 264 oscformat keras delexample;
-#X obj 4 93 bng 15 250 50 0 empty empty Delete\\\ Last 17 7 0 10 #fcfcfc
+#X obj 4 80 bng 15 250 50 0 empty empty Delete\\\ Last 17 7 0 10 #fcfcfc
 #000000 #000000;
-#X obj 4 110 bng 15 250 50 0 empty empty Delete\\\ All 17 7 0 10 #fcfcfc
+#X obj 4 97 bng 15 250 50 0 empty empty Delete\\\ All 17 7 0 10 #fcfcfc
 #000000 #000000;
 #X obj 159 283 oscformat keras delall;
-#X obj 4 42 tgl 15 0 empty empty Learn 17 7 0 10 #fcfcfc #000000 #000000
+#X obj 4 29 tgl 15 0 empty empty Learn 17 7 0 10 #fcfcfc #000000 #000000
 0 1;
 #X obj 7 133 hsl 140 15 0 1 0 0 empty empty Source 8 8 0 10 #fcfcfc
 #000000 #000000 0 1;
@@ -2380,10 +2380,10 @@
 #X msg 90 307 connect localhost 6449;
 #X msg 58 5 1;
 #X msg 86 5 0;
-#X obj 4 25 tgl 15 0 empty empty Auto 17 7 0 10 #fcfcfc #000000 #000000
+#X obj 4 114 tgl 15 0 empty empty Auto 17 7 0 10 #fcfcfc #000000 #000000
 0 1;
 #X floatatom 370 421 10 0 0 0 - - - 0;
-#X floatatom 113 25 5 1 60 1 seconds - - 0;
+#X floatatom 155 114 5 1 60 1 seconds - - 0;
 #X obj 370 390 * 1000;
 #X obj 307 442 metro 15000;
 #X obj 307 393 t f b;
@@ -2464,6 +2464,9 @@
 #X obj 399 215 /~ 2;
 #X text 266 2 Glome;
 #X msg 113 5 20;
+#X obj 51 114 hsl 100 15 1 60 0 0 empty empty seconds 4 8 0 10 #fcfcfc
+#000000 #000000 0 1;
+#X msg 66 93 set \$1;
 #X connect 1 0 2 0;
 #X connect 1 0 30 0;
 #X connect 2 0 3 0;
@@ -2503,6 +2506,7 @@
 #X connect 33 0 38 0;
 #X connect 34 0 37 1;
 #X connect 35 0 36 0;
+#X connect 35 0 60 0;
 #X connect 36 0 34 0;
 #X connect 37 0 11 0;
 #X connect 38 0 37 0;
@@ -2527,5 +2531,7 @@
 #X connect 54 0 51 1;
 #X connect 55 0 53 0;
 #X connect 56 0 51 0;
-#X connect 58 0 35 0;
+#X connect 58 0 59 0;
+#X connect 59 0 35 0;
+#X connect 60 0 59 0;
 #X coords 0 -1 1 1 301 201 2 2 2;
