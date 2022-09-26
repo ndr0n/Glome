@@ -64,8 +64,8 @@ class OscServer:
         self.yin = np.array(args)
         if (self.learn == True) & (self.training == False):
             if self.nExamples == 0:
-                self.x = self.xin
-                self.y = self.yin
+                self.x = np.reshape(self.xin, (1, size))
+                self.y = np.reshape(self.yin, (1, size))
             else:
                 self.x = np.vstack((self.x, self.xin))
                 self.y = np.vstack((self.y, self.yin))
