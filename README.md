@@ -2,7 +2,7 @@
 
 ![Glome](Glome.png)
 
-Machine Learning improviser.
+Machine Learning improviser VST3.
 
 requirements: python, python-osc, keras, tensorflow, pure data.
 
