@@ -7,6 +7,7 @@ Machine Learning improviser.
 requirements: python, python-osc, keras, tensorflow, pure data.
 
 How to use:
+
     - Launch train.py (python3 train.py);
     - Launch pred.py (python3 pred.py);
     - Launch Glome.vst3;
