@@ -4,7 +4,7 @@
 
 Machine Learning Improviser VST3 Audio Effect.
 
-requirements: python, pyliblo, keras, tensorflow, pure data.
+requirements: python, python-osc, keras, tensorflow, pure data.
 
 How to use:
 
