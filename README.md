@@ -2,7 +2,7 @@
 
 ![Glome](Glome.png)
 
-Machine Learning improviser VST3.
+Machine Learning Improviser VST3 Audio Effect.
 
 requirements: python, python-osc, keras, tensorflow, pure data.
 
