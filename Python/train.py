@@ -1,35 +1,10 @@
-import argparse
-import threading
-from pythonosc import dispatcher
-from pythonosc import udp_client
-from pythonosc import osc_server
-from pythonosc.osc_message_builder import OscMessageBuilder
 import numpy as np
 from net import NeuralNetRegression
-from pythonosc.osc_server import AsyncIOOSCUDPServer
-import asyncio
-import time
+import liblo
 
 size = 8192
 nHidden = 3
 nNodes = 10
-
-class OscClient:
-    def __init__(self,ip,port):
-        self.ip = ip
-        self.port = port
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--ip", default=ip)
-        parser.add_argument("--port", type=int, default=port)
-        args = parser.parse_args()
-        self.client = udp_client.SimpleUDPClient(args.ip, args.port)
-
-    def sendMsg(self,msg,msgAdress):
-        builder = OscMessageBuilder(address=msgAdress)
-        for v in msg:
-            builder.add_arg(v)
-        out = builder.build()
-        self.client.send(out)
 
 class OscServer:
     def __init__(self, ip, port):
@@ -42,21 +17,22 @@ class OscServer:
         self.xin = np.array([0])
         self.yin = np.array([0])
         self.yout = np.array([0])
-        self.dispatcher = dispatcher.Dispatcher()
-        self.dispatcher.map('/keras/xin', self.getX)
-        self.dispatcher.map('/keras/delexample', self.delExample)
-        self.dispatcher.map('/keras/delall', self.delAll)
-        self.dispatcher.map('/keras/train', self.trainModel)
-        self.dispatcher.map('/keras/trainnew', self.trainNewModel)
-        self.dispatcher.map('/keras/learn', self.setLearn)
-        self.server = AsyncIOOSCUDPServer((ip, port), self.dispatcher, asyncio.get_event_loop())
         self.model = NeuralNetRegression(np.zeros((1, size)), np.zeros((1, size)), nHidden, nNodes)
-        self.oscclient = OscClient("127.0.0.1", 6449)
+        self.server = liblo.Server(port)
+        self.server.add_method("/keras/xin", None, self.getX)
+        self.server.add_method("/keras/delexample", None, self.delExample)
+        self.server.add_method("/keras/delall", None, self.delAll)
+        self.server.add_method("/keras/train", None, self.trainModel)
+        self.server.add_method("/keras/trainnew", None, self.trainNewModel)
+        self.server.add_method("/keras/learn", None, self.setLearn)
+        self.server.add_method(None, None, self.Fallback)
 
-    async def StartServer(self):
-        self.transport, self.protocol = await self.server.create_serve_endpoint()
+    def Fallback(self, path, args, types, src):
+        print("got unknown message '%s' from '%s'" % (path, src.url))
+        for a, t in zip(args, types):
+            print("argument of type '%s': %s" % (t, a))
 
-    def getX(self, unused_addr, *args):
+    def getX(self, path, args):
         if self.nExamples == 0:
             self.xin = np.array(args)
         else:
@@ -72,11 +48,11 @@ class OscServer:
             self.nExamples = self.x.shape[0]
             print("nExamples:", self.nExamples)
 
-    def setLearn(self, unused_addr, *args):
+    def setLearn(self, path, args):
         if args[0] == 1.0: self.learn = True
         else: self.learn = False
 
-    def delExample(self, unused_addr, *args):
+    def delExample(self, path, args):
         self.nExamples -= 1
         self.x = self.x[:-1]
         self.y = self.y[:-1]
@@ -87,17 +63,17 @@ class OscServer:
         print("Removed Example")
         print("nExamples:", self.nExamples)
 
-    def delAll(self, unused_addr, *args):
+    def delAll(self, path, args):
         self.nExamples = 0
         x = np.array([0])
         y = np.array([0])
         print("Cleared Examples")
         print("nExamples:", self.nExamples)
 
-    def trainModel(self, unused_addr, *args):
+    def trainModel(self, path, args):
         self.trainNetwork(False)
 
-    def trainNewModel(self, unused_addr, *args):
+    def trainNewModel(self, path, args):
         self.trainNetwork(True)
 
     def trainNetwork(self, new):
@@ -120,13 +96,7 @@ class OscServer:
             print("Cleared Examples")
             print("nExamples:", self.nExamples)
             self.training = False
-            self.oscclient.sendMsg([0,0], "/keras/load")
-            time.sleep(0.1)
-            self.oscclient.sendMsg([0,0], "/keras/load")
-            time.sleep(0.1)
-            self.oscclient.sendMsg([0,0], "/keras/load")
-            time.sleep(0.1)
-            self.oscclient.sendMsg([0,0], "/keras/load")
+            self.server.send(6449, "/keras/load", [0,0])
         else:
             print("no Examples found. Need atleast 2 Examples to Train")
 
@@ -139,21 +109,13 @@ class OscServer:
         mj.save_weights("glome.h5")
         print("Saved model to disk")
 
-async def loop(server):
-    try:
-        while True:
-            await asyncio.sleep(1);
-            pass
-    except KeyboardInterrupt:
-        print('Closing...')
-        server.transport.close()
-        server.server.shutdown()
-        quit()
+oscserver = OscServer("127.0.0.1", 6448);
+print("press ctrl+c: quit")
 
-async def init_main():
-    print("press ctrl+c: quit")
-    oscserver = OscServer("127.0.0.1", 6448)
-    await oscserver.StartServer()
-    await loop(oscserver)
-
-asyncio.run(init_main())
+try:
+    while True:
+        oscserver.server.recv(1000);
+        pass;
+except KeyboardInterrupt:
+    oscserver.server.stop();
+    quit()
