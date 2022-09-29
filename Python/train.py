@@ -36,7 +36,7 @@ class OscServer:
         self.epochs = 100
         self.learn = True
         self.training = False
-        self.nExamples = 0
+        self.Examples = 0
         self.x = np.array([0])
         self.y = np.array([0])
         self.xin = np.array([0])
@@ -49,6 +49,7 @@ class OscServer:
         self.dispatcher.map('/keras/train', self.trainModel)
         self.dispatcher.map('/keras/trainnew', self.trainNewModel)
         self.dispatcher.map('/keras/learn', self.setLearn)
+        self.dispatcher.map('/keras/epochs', self.setEpochs)
         self.server = AsyncIOOSCUDPServer((ip, port), self.dispatcher, asyncio.get_event_loop())
         self.model = NeuralNetRegression(np.zeros((1, size)), np.zeros((1, size)), nHidden, nNodes)
         self.oscclient = OscClient("127.0.0.1", 6449)
@@ -57,42 +58,46 @@ class OscServer:
         self.transport, self.protocol = await self.server.create_serve_endpoint()
 
     def getX(self, unused_addr, *args):
-        if self.nExamples == 0:
-            self.xin = np.array(args)
-        else:
-            self.xin = self.yin
-        self.yin = np.array(args)
-        if (self.learn == True) & (self.training == False):
-            if self.nExamples == 0:
-                self.x = np.reshape(self.xin, (1, size))
-                self.y = np.reshape(self.yin, (1, size))
+        try:
+            if self.Examples == 0:
+                self.xin = np.array(args)
             else:
-                self.x = np.vstack((self.x, self.xin))
-                self.y = np.vstack((self.y, self.yin))
-            self.nExamples = self.x.shape[0]
-            print("nExamples:", self.nExamples)
+                self.xin = self.yin
+            self.yin = np.array(args)
+            if (self.learn == True) & (self.training == False):
+                if self.Examples == 0:
+                    self.x = np.reshape(self.xin, (1, size))
+                    self.y = np.reshape(self.yin, (1, size))
+                else:
+                    self.x = np.vstack((self.x, self.xin))
+                    self.y = np.vstack((self.y, self.yin))
+                self.Examples = self.x.shape[0]
+                print("Examples:", self.Examples)
+        except:
+            print("Error while receiving example!");
+            self.delAll("", [""]);
 
     def setLearn(self, unused_addr, *args):
         if args[0] == 1.0: self.learn = True
         else: self.learn = False
 
     def delExample(self, unused_addr, *args):
-        self.nExamples -= 1
+        self.Examples -= 1
         self.x = self.x[:-1]
         self.y = self.y[:-1]
         print(self.x)
         print(self.y)
-        if self.nExamples < 0:
-            self.nExamples = 0
+        if self.Examples < 0:
+            self.Examples = 0
         print("Removed Example")
-        print("nExamples:", self.nExamples)
+        print("Examples:", self.Examples)
 
     def delAll(self, unused_addr, *args):
-        self.nExamples = 0
+        self.Examples = 0
         x = np.array([0])
         y = np.array([0])
         print("Cleared Examples")
-        print("nExamples:", self.nExamples)
+        print("Examples:", self.Examples)
 
     def trainModel(self, unused_addr, *args):
         self.trainNetwork(False)
@@ -100,35 +105,40 @@ class OscServer:
     def trainNewModel(self, unused_addr, *args):
         self.trainNetwork(True)
 
+    def setEpochs(self, unused_addr, *args):
+        self.epochs = round(args[0])
+        print("Set Epochs to", self.epochs);
+
     def trainNetwork(self, new):
-        if self.nExamples > 1:
-            self.training = True
-            if new == True:
-                self.model = NeuralNetRegression(self.x, self.y, nHidden, nNodes)
-                print("Training New Neural Network...")
+        try:
+            if self.Examples > 1:
+                self.training = True
+                if new == True:
+                    self.model = NeuralNetRegression(self.x, self.y, nHidden, nNodes)
+                    print("Training New Neural Network...")
+                else:
+                    print("Training Neural Network...")
+                print("Examples:", self.Examples, "Epochs:", self.epochs)
+                self.y = self.y[0:self.x.shape[0]]
+                self.x = self.x[0:self.y.shape[0]]
+                mjson = self.model.fit(self.x, self.y, self.epochs)
+                print("Finished Training Neural Network!")
+                self.SaveModel(mjson)
+                self.Examples = 0
+                self.x = np.array([0])
+                self.y = np.array([0])
+                print("Cleared Examples")
+                print("Examples:", self.Examples)
+                self.training = False
+                self.oscclient.sendMsg([0,0], "/keras/load")
+                time.sleep(0.1)
             else:
-                print("Training Neural Network...")
-            print("nExamples:", self.nExamples, "Epochs:", self.epochs)
-            self.y = self.y[0:self.x.shape[0]]
-            self.x = self.x[0:self.y.shape[0]]
-            mjson = self.model.fit(self.x, self.y, self.epochs)
-            print("Finished Training Neural Network")
-            self.SaveModel(mjson)
-            self.nExamples = 0
-            self.x = np.array([0])
-            self.y = np.array([0])
-            print("Cleared Examples")
-            print("nExamples:", self.nExamples)
-            self.training = False
-            self.oscclient.sendMsg([0,0], "/keras/load")
-            time.sleep(0.1)
-            self.oscclient.sendMsg([0,0], "/keras/load")
-            time.sleep(0.1)
-            self.oscclient.sendMsg([0,0], "/keras/load")
-            time.sleep(0.1)
-            self.oscclient.sendMsg([0,0], "/keras/load")
-        else:
-            print("no Examples found. Need atleast 2 Examples to Train")
+                print("Not enough examples. Need at least 2 examples to start training.")
+        except:
+            print("Error while training network!");
+            self.delAll("", [""]);
+            self.training = False;
+
 
     def SaveModel(self, mj):
         # serialize model to JSON
@@ -137,7 +147,7 @@ class OscServer:
             json_file.write(model_json)
         # serialize weights to HDF5
         mj.save_weights("glome.h5")
-        print("Saved model to disk")
+        print("Saved Neural Network!")
 
 async def loop(server):
     try:

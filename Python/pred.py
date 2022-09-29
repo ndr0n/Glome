@@ -48,13 +48,16 @@ class OscPredict:
         self.transport, self.protocol = await self.server.create_serve_endpoint()
 
     def Predict(self, unused_addr, *args):
-        if self.trained == True:
-            self.yout = self.model.predict(np.reshape(np.array(args), (1, size)))
-            self.yout = np.reshape(self.yout, (round(size/256), 256))
-            for chunk in self.yout:
-                self.oscclient.sendMsg(chunk.tolist(), '/keras/yout')
-            self.oscclient.sendMsg([1], '/keras/sent')
-            # self.oscclient.sendMsg(self.yout.tolist(), '/keras/yout')
+        try:
+            if self.trained == True:
+                self.yout = self.model.predict(np.reshape(np.array(args), (1, size)))
+                self.yout = np.reshape(self.yout, (round(size/256), 256))
+                for chunk in self.yout:
+                    self.oscclient.sendMsg(chunk.tolist(), '/keras/yout')
+                self.oscclient.sendMsg([1], '/keras/sent')
+                # self.oscclient.sendMsg(self.yout.tolist(), '/keras/yout')
+        except:
+            print("Error while generating waveform!");
 
     def Load(self, unused_addr, *args):
         self.LoadModel()
@@ -67,7 +70,7 @@ class OscPredict:
         self.model = model_from_json(loaded_model_json)
         # load weights into new model
         self.model.load_weights("glome.h5")
-        print("Loaded model from disk")
+        print("Loaded Neural Network!")
         self.trained = True
 
 async def loop(predict):
