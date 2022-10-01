@@ -73,8 +73,9 @@ class OscServer:
                     self.y = np.vstack((self.y, self.yin))
                 self.Examples = self.x.shape[0]
                 print("Examples:", self.Examples)
-        except:
+        except Exception as e:
             print("Error while receiving example!");
+            print(e);
             self.delAll("", [""]);
 
     def setLearn(self, unused_addr, *args):
@@ -134,8 +135,9 @@ class OscServer:
                 time.sleep(0.1)
             else:
                 print("Not enough examples. Need at least 2 examples to start training.")
-        except:
+        except Exception as e:
             print("Error while training network!");
+            print(e);
             self.delAll("", [""]);
             self.training = False;
 

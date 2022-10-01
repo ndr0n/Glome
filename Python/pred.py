@@ -56,8 +56,9 @@ class OscPredict:
                     self.oscclient.sendMsg(chunk.tolist(), '/keras/yout')
                 self.oscclient.sendMsg([1], '/keras/sent')
                 # self.oscclient.sendMsg(self.yout.tolist(), '/keras/yout')
-        except:
+        except Exception as e:
             print("Error while generating waveform!");
+            print(e);
 
     def Load(self, unused_addr, *args):
         self.LoadModel()
