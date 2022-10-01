@@ -49,7 +49,7 @@ class OscPredict:
 
     def Predict(self, unused_addr, *args):
         try:
-            if self.trained == True:
+            if self.trained:
                 self.yout = self.model.predict(np.reshape(np.array(args), (1, size)))
                 self.yout = np.reshape(self.yout, (round(size/256), 256))
                 for chunk in self.yout:
