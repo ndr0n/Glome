@@ -1,18 +1,39 @@
-import argparse
+import os
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices'
 import threading
+import argparse
+import asyncio
+import argparse
+import numpy as np
+from pythonosc import osc_server
 from pythonosc import dispatcher
 from pythonosc import udp_client
-from pythonosc import osc_server
-from pythonosc.osc_message_builder import OscMessageBuilder
-import numpy as np
-from net import NeuralNetRegression
 from pythonosc.osc_server import AsyncIOOSCUDPServer
-import asyncio
-import time
+from pythonosc.osc_message_builder import OscMessageBuilder
+from keras.models import Sequential
+from keras.layers import Dense
 
 size = 8192
 nHidden = 3
 nNodes = 10
+
+class NeuralNetRegression:
+    def __init__(self,x,y,nHidden,nNodes):
+        self.nHidden = nHidden
+        self.nNodes = nNodes
+        self.model = Sequential()
+        self.model.add(Dense(self.nNodes, input_dim=x.shape[1], activation='linear'))
+        for i in range(nHidden-1):
+            self.model.add(Dense(self.nNodes, activation='relu'))
+        self.model.add(Dense(y.shape[1], activation='linear'))
+
+    def fit(self, x, y, epochs):
+        self.model.compile(loss='mse', optimizer='adam')
+        self.model.fit(x, y, epochs=epochs,batch_size=x.shape[0],verbose=0)
+        return self.model
+
+    def predict(self, xin):
+        return self.model.predict(xin)
 
 class OscClient:
     def __init__(self,ip,port):
@@ -35,6 +56,7 @@ class OscServer:
     def __init__(self, ip, port):
         self.epochs = 100
         self.learn = True
+        self.trained = False
         self.training = False
         self.Examples = 0
         self.x = np.array([0])
@@ -43,6 +65,7 @@ class OscServer:
         self.yin = np.array([0])
         self.yout = np.array([0])
         self.dispatcher = dispatcher.Dispatcher()
+        self.dispatcher.map('/keras/predict', self.Predict)
         self.dispatcher.map('/keras/xin', self.getX)
         self.dispatcher.map('/keras/delexample', self.delExample)
         self.dispatcher.map('/keras/delall', self.delAll)
@@ -52,7 +75,7 @@ class OscServer:
         self.dispatcher.map('/keras/epochs', self.setEpochs)
         self.server = AsyncIOOSCUDPServer((ip, port), self.dispatcher, asyncio.get_event_loop())
         self.model = NeuralNetRegression(np.zeros((1, size)), np.zeros((1, size)), nHidden, nNodes)
-        self.oscclient = OscClient("127.0.0.1", 6449)
+        self.oscclient = OscClient("127.0.0.1", 3000)
 
     async def StartServer(self):
         self.transport, self.protocol = await self.server.create_serve_endpoint()
@@ -111,28 +134,30 @@ class OscServer:
         print("Set Epochs to", self.epochs);
 
     def trainNetwork(self, new):
+        t = threading.Thread(target=self.train)
+        if new == True:
+            self.model = NeuralNetRegression(self.x, self.y, nHidden, nNodes)
+            print("Training New Neural Network...")
+        else:
+            print("Training Neural Network...")
+        t.start()
+
+    def train(self):
         try:
             if self.Examples > 1:
                 self.training = True
-                if new == True:
-                    self.model = NeuralNetRegression(self.x, self.y, nHidden, nNodes)
-                    print("Training New Neural Network...")
-                else:
-                    print("Training Neural Network...")
                 print("Examples:", self.Examples, "Epochs:", self.epochs)
                 self.y = self.y[0:self.x.shape[0]]
                 self.x = self.x[0:self.y.shape[0]]
-                mjson = self.model.fit(self.x, self.y, self.epochs)
+                self.model.fit(self.x, self.y, self.epochs)
                 print("Finished Training Neural Network!")
-                self.SaveModel(mjson)
+                self.trained = True
                 self.Examples = 0
                 self.x = np.array([0])
                 self.y = np.array([0])
                 print("Cleared Examples")
                 print("Examples:", self.Examples)
                 self.training = False
-                self.oscclient.sendMsg([0,0], "/keras/load")
-                time.sleep(0.1)
             else:
                 print("Not enough examples. Need at least 2 examples to start training.")
         except Exception as e:
@@ -141,31 +166,28 @@ class OscServer:
             self.delAll("", [""]);
             self.training = False;
 
+    def Predict(self, unused_addr, *args):
+        try:
+            if self.trained:
+                self.yout = self.model.predict(np.reshape(np.array(args), (1, size)))
+                self.yout = np.reshape(self.yout, (round(size/256), 256))
+                for chunk in self.yout:
+                    self.oscclient.sendMsg(chunk.tolist(), '/keras/yout')
+                self.oscclient.sendMsg([1], '/keras/sent')
+        except Exception as e:
+            print("Error while generating waveform!")
+            print(e)
 
-    def SaveModel(self, mj):
-        # serialize model to JSON
-        model_json = mj.to_json()
-        with open("glome.json", "w") as json_file:
-            json_file.write(model_json)
-        # serialize weights to HDF5
-        mj.save_weights("glome.h5")
-        print("Saved Neural Network!")
-
-async def loop(server):
-    try:
-        while True:
-            await asyncio.sleep(1);
-            pass
-    except KeyboardInterrupt:
-        print('Closing...')
-        server.transport.close()
-        server.server.shutdown()
-        quit()
-
-async def init_main():
-    print("press ctrl+c: quit")
+async def init():
     oscserver = OscServer("127.0.0.1", 6448)
     await oscserver.StartServer()
-    await loop(oscserver)
 
-asyncio.run(init_main())
+print("press ctrl+c: quit")
+loop = asyncio.get_event_loop()
+try:
+    loop.run_until_complete(init())
+    loop.run_forever()
+except KeyboardInterrupt:
+    print('Closing...')
+    loop.close()
+    quit()

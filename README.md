@@ -4,12 +4,12 @@
 
 Machine Learning Improviser VST3 Audio Effect.
 
-requirements: python, python-osc, keras, tensorflow, pure data.
+Python dependencies: python, python-osc, keras, tensorflow.
 
 How to use:
 
-    - Launch train.py (python3 train.py);
-    - Launch pred.py (python3 pred.py);
+    - Install python dependencies.
+    - Run glome.py (python3 glome.py);
     - Launch Glome.vst3;
     - Feed audio to Glome (Learn is toggled on by default)
     - Train Neural Network (Auto train is toggled on by default)
